@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calculadora de Risco de Demência — 14 Fatores</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#94a3b8;--accent:#7c3aed;--glass:rgba(255,255,255,0.04)}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{margin:0;background:linear-gradient(180deg,#071029 0%, #061225 60%);color:#e6eef8;min-height:100vh;padding:28px}
+    .container{max-width:1000px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#3b82f6);display:flex;align-items:center;justify-content:center;font-weight:700;color:white}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:18px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:18px;box-shadow:0 6px 18px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+
+    label.field{display:block;margin-bottom:8px;font-size:13px;color:var(--muted)}
+    input[type=text], input[type=date], select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .factors{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+    .factor{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:var(--glass);border:1px solid rgba(255,255,255,0.02)}
+    .factor input{width:16px;height:16px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--accent);color:white;border:0;cursor:pointer;font-weight:600}
+    .muted{color:var(--muted);font-size:13px}
+    .result{padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(0,0,0,0.12), rgba(255,255,255,0.02));margin-top:12px}
+    .large{font-size:28px;font-weight:700}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:8px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.03);font-size:13px}
+    .small{font-size:12px;color:var(--muted)}
+    footer{margin-top:14px;color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:8px;align-items:center}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.factors{grid-template-columns:1fr}.logo{display:none}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">DR</div>
+      <div>
+        <h1>Calculadora de Risco de Demência — 14 Fatores</h1>
+        <p class="lead">Marque os fatores presentes na pessoa para estimar a fração atribuível combinada (modelo Lancet 2024).</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div>
+          <label class="field">Nome</label>
+          <input id="nome" type="text" placeholder="Nome do indivíduo (opcional)" />
+        </div>
+        <div style="margin-top:10px;display:flex;gap:12px;">
+          <div style="flex:1">
+            <label class="field">Data de nascimento</label>
+            <input id="dob" type="date" />
+          </div>
+          <div style="width:140px">
+            <label class="field">Sexo</label>
+            <select id="sexo"><option value="">--</option><option value="F">Feminino</option><option value="M">Masculino</option></select>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label class="field">Escolaridade (anos)</label>
+          <input id="anosEscol" type="text" placeholder="Ex: 4" />
+          <div class="small muted" style="margin-top:6px">Se &lt;=8 anos será considerado baixa escolaridade.</div>
+        </div>
+
+        <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:14px 0">
+
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><strong>Marque os fatores presentes</strong><div class="small muted">(assuma presença atual/na meia-idade conforme apropriado)</div></div>
+          <div class="controls">
+            <button id="calc" class="btn">Calcular</button>
+            <button id="export" class="btn" style="background:#0ea5a4">Exportar CSV</button>
+          </div>
+        </div>
+
+        <div class="factors" id="factors">
+          <!-- factors inserted by JS -->
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <input id="applyWeights" type="checkbox" /> <label for="applyWeights" class="small">Aplicar pesos de comunalidade (ajuste por sobreposição; recomendado)</label>
+        </div>
+
+      </div>
+
+      <aside class="card">
+        <h3>Resultado</h3>
+        <div id="summary" class="result">
+          <div class="muted">Nenhum cálculo ainda. Clique em <strong>Calcular</strong>.</div>
+        </div>
+
+        <div id="breakdown"></div>
+
+        <footer>
+          <div class="small muted">Método: usa os riscos relativos (RR) do relatório Lancet 2024. Para um indivíduo exposto, PAF_i = (RR−1)/RR. PAF combinado = 1 − ∏(1 − w_i*PAF_i) se pesos ativados, ou sem pesos w_i=1 por padrão.</div>
+        </footer>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    // Dados dos fatores com RR e comunalidade (valores extraídos do artigo anexado)
+    const FACTORS = [
+      {id:'lowEdu', label:'Escolaridade <= 8 anos', rr:1.6, communality:26.6},
+      {id:'hearing', label:'Déficit auditivo', rr:1.4, communality:30.3},
+      {id:'highChol', label:'Dislipidemia (colesterol alto)', rr:1.3, communality:32.2},
+      {id:'depression', label:'Depressão', rr:2.2, communality:41.4},
+      {id:'tbi', label:'TCE com perda de consciência/internação', rr:1.7, communality:38.5},
+      {id:'inactivity', label:'Inatividade física (mínimo não atingido)', rr:1.2, communality:49.9},
+      {id:'diabetes', label:'Diabetes', rr:1.7, communality:29.4},
+      {id:'smoking', label:'Tabagismo (atual)', rr:1.3, communality:52.4},
+      {id:'hypertension', label:'Hipertensão', rr:1.2, communality:33.6},
+      {id:'obesity', label:'Obesidade (IMC >= 30)', rr:1.3, communality:31.7},
+      {id:'alcohol', label:'Etilismo >= 14u/semana', rr:1.2, communality:47.5},
+      {id:'isolation', label:'Isolamento social (<1 vez/mês)', rr:1.6, communality:46.5},
+      {id:'urban', label:'Moradia em área urbana (poluição do ar)', rr:1.1, communality:49.7},
+      {id:'vision', label:'Déficit visual', rr:1.5, communality:28.9}
+    ];
+
+    const factorsDiv = document.getElementById('factors');
+    FACTORS.forEach(f => {
+      const el = document.createElement('label'); el.className='factor';
+      el.innerHTML = `<input type="checkbox" id="${f.id}" /> <div><strong>${f.label}</strong><div class='small'>RR=${f.rr}, communalidade=${f.communality}%</div></div>`;
+      factorsDiv.appendChild(el);
+    });
+
+    function calcPAFForRR(rr){
+      // se exposto (Pe=1): PAF = (RR-1)/(RR)
+      return (rr - 1) / rr;
+    }
+
+    function formatPct(x){ return (x*100).toFixed(1) + '%'; }
+
+    document.getElementById('calc').addEventListener('click', ()=>{
+      const nome = document.getElementById('nome').value || 'Indivíduo';
+      const anos = parseFloat(document.getElementById('anosEscol').value);
+
+      // auto-mark low education if anos <= 8
+      if(!isNaN(anos) && anos <= 8){ document.getElementById('lowEdu').checked = true; }
+
+      const applyWeights = document.getElementById('applyWeights').checked;
+
+      const selected = FACTORS.filter(f=> document.getElementById(f.id).checked);
+
+      if(selected.length === 0){
+        document.getElementById('summary').innerHTML = `<div class='muted'>Nenhum fator selecionado — risco atribuível estimado é baixo.</div>`;
+        document.getElementById('breakdown').innerHTML = '';
+        return;
+      }
+
+      // calcula PAF individual para cada fator
+      const breakdown = selected.map(f => {
+        const paf_i = calcPAFForRR(f.rr);
+        const weight = (1 - (f.communality/100)); // wi = 1 - communality
+        return { ...f, paf_i, weight };
+      });
+
+      // Combined unweighted: 1 - product(1 - paf_i)
+      const prodUnweighted = breakdown.reduce((acc,b)=> acc * (1 - b.paf_i), 1);
+      const pafCombinedUnweighted = 1 - prodUnweighted;
+
+      // Combined weighted: 1 - product(1 - wi * paf_i)
+      const prodWeighted = breakdown.reduce((acc,b)=> acc * (1 - (b.weight * b.paf_i)), 1);
+      const pafCombinedWeighted = 1 - prodWeighted;
+
+      // alternative exact formula: 1 - 1 / (product RR_i)  when Pe=1 and no weights
+      const prodRR = breakdown.reduce((acc,b)=> acc * b.rr, 1);
+      const pafAlt = 1 - (1 / prodRR);
+
+      // render summary
+      const summaryDiv = document.getElementById('summary');
+      summaryDiv.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="muted">Resultado para:</div>
+            <div class="large">${nome}</div>
+            <div class="small muted">${selected.length} fatores marcados</div>
+          </div>
+          <div style="text-align:right">
+            <div class="small muted">PAF combinado (sem pesos)</div>
+            <div style="font-size:20px;font-weight:700">${formatPct(pafCombinedUnweighted)}</div>
+            <div class="small muted" style="margin-top:6px">PAF combinado (com pesos) <span style="font-weight:700">${formatPct(pafCombinedWeighted)}</span></div>
+          </div>
+        </div>
+        <div class="small muted" style="margin-top:8px">Interpretação: estima a fração da probabilidade atribuível aos fatores selecionados. Não é uma probabilidade absoluta de demência — indica a porção do risco potencial que pode ser associada aos fatores marcados.</div>
+      `;
+
+      // breakdown table
+      const bd = document.getElementById('breakdown');
+      let rows = `<table><thead><tr><th>Fator</th><th>RR</th><th>PAF (indiv.)</th><th>Peso wi</th><th>wi * PAF</th></tr></thead><tbody>`;
+      breakdown.forEach(b => {
+        rows += `<tr><td>${b.label}</td><td class='small'>${b.rr}</td><td class='small'>${formatPct(b.paf_i)}</td><td class='small'>${b.weight.toFixed(2)}</td><td class='small'>${formatPct(b.weight * b.paf_i)}</td></tr>`;
+      });
+      rows += `</tbody></table>`;
+      rows += `<div class='small muted' style='margin-top:8px'>Produto das RR: ${prodRR.toFixed(3)} — Alternative combined (1 − 1/ΠRR) = ${formatPct(pafAlt)}</div>`;
+
+      bd.innerHTML = rows;
+
+      // if user asked to apply weights, show which used
+      if(!applyWeights){
+        // show note
+        bd.innerHTML += `<div class='small muted' style='margin-top:8px'>Nota: os resultados exibidos acima incluem os pesos de comunalidade apenas para informação. Ative "Aplicar pesos" para usar no cálculo final.</div>`;
+      }
+
+    });
+
+    // export CSV
+    document.getElementById('export').addEventListener('click', ()=>{
+      const nome = document.getElementById('nome').value || '';
+      const anos = document.getElementById('anosEscol').value || '';
+      const applyWeights = document.getElementById('applyWeights').checked;
+      const rows = [];
+      const selected = FACTORS.filter(f=> document.getElementById(f.id).checked);
+      selected.forEach(f=> rows.push([nome || '','',f.label,f.rr,f.communality,( (f.rr-1)/f.rr ).toFixed(4), (1-(f.communality/100)).toFixed(4)]));
+      if(rows.length===0){ alert('Nenhum fator selecionado para exportar.'); return; }
+      let csv = 'Nome,DataNascimento,Factor,RR,Communality,PAF_individual,Weight\n';
+      rows.forEach(r=> csv += r.join(',') + '\n');
+      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'risco_demencia.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+  </script>
+</body>
+</html>
